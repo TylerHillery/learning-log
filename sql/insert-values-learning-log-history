@@ -1,0 +1,21 @@
+INSERT INTO learninglog.history(
+		session_start_time, 
+		session_end_time, 
+		platform, 
+		title, 
+		teacher, 
+		topic, 
+		hyperlink, 
+		tags, 
+		notes
+	)
+	VALUES ('2022-05-28 06:45:00', 
+			'2022-05-28 07:00:00', 
+			'Udemy', 
+			'Ultimate AWS Certified Cloud Practitioner - 2022', 
+			'Stephane Maarek', 
+			'AWS', 
+			'https://www.udemy.com/share/103a093@hfvb0EDL3HrMc9R30Dv-0CbArLdU0zAYbdHqOZcrEUihH8ztxu68EDAAhA-Vlvp3/',
+			'AWS;Cloud Computing', 
+			'Learning about EBS (Elastic Block Store) which is one of the storage options on AWS EC2 instance. One the features we covered was snapshots that gives the ability to make a backup the EBS volume at a point in time.'
+		   );
