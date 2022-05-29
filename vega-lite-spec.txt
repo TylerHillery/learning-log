@@ -1,0 +1,60 @@
+{
+  "mark": {"type": "rect", "tooltip": True},
+  "encoding": {
+    "x": {
+      "field": "shifted_date",
+      "type": "ordinal",
+      "timeUnit": "week",
+      "title": "",
+      "axis": {"tickBand": "extent"}
+    },
+    "y": {
+      "field": "shifted_date",
+      "type": "ordinal",
+      "timeUnit": "day",
+      "title": "",
+      "axis": {"tickBand": "extent"}
+    },
+    "color": {
+      "field": "duration_min",
+      "type": "quantitative",
+      "aggregate": "sum",
+      "legend": True,
+      "scale": {"scheme": "greens"}
+    }
+  },
+  "width": 1000,
+  "height": 250,
+  "autosize": {"type": "fit", "contains": "padding"},
+  "config": {
+    "background": "#0e1117",
+    "axis": {
+      "labelColor": "#fafafa",
+      "titleColor": "#fafafa",
+      "gridColor": "#0e1117",
+      "labelFont": "\"Source Sans Pro\", sans-serif",
+      "titleFont": "\"Source Sans Pro\", sans-serif",
+      "labelFontSize": 12,
+      "titleFontSize": 12,
+      "grid": True,
+      "gridwidth": 100
+    },
+    "legend": {
+      "labelColor": "#fafafa",
+      "titleColor": "#fafafa",
+      "labelFont": "\"Source Sans Pro\", sans-serif",
+      "titleFont": "\"Source Sans Pro\", sans-serif",
+      "labelFontSize": 12,
+      "titleFontSize": 12
+    },
+    "title": {
+      "color": "#fafafa",
+      "subtitleColor": "#fafafa",
+      "labelFont": "\"Source Sans Pro\", sans-serif",
+      "titleFont": "\"Source Sans Pro\", sans-serif",
+      "labelFontSize": 12,
+      "titleFontSize": 12
+    }
+  },
+  "padding": {"bottom": 20}
+}
