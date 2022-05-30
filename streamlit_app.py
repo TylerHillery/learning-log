@@ -49,9 +49,15 @@ df = pd.DataFrame(index=index, columns=columns)
 # concat DataFrame frame with learning_log DataFrame that actually has data. 
 results = pd.concat([df, learning_log], sort=False).sort_index()
 
-# replace NaN values in duration_min column with 0 for metrics
-results['duration_min'].fillna(0,inplace=True)
-
+# replace NaN values in duration_min column with 0, None for metrics
+results.fillna({
+    'duration_min': 0,
+    'medium':'null',
+    'title':'null',
+    'teacher': 'null',
+    'tags':'null',
+    'notes':'null'
+}, inplace=True)
 # renaming index to look nicer
 learning_log.index.name = df.index.name = results.index.name = 'date_index'
 
@@ -66,9 +72,11 @@ header = st.container()
 metrics = st.container()
 heat_map = st.container()
 learning_sessions = st.container()
+
 # Defining side bar features
 with st.sidebar:
     st.header("Filters") 
+    # Start and end dates
     start_date = st.date_input("Start Date",
                                     value = min_date,
                                     min_value = min_date, 
@@ -77,6 +85,32 @@ with st.sidebar:
                                     value = today,
                                     min_value = min_date, 
                                     max_value = today)
+    # Multi Selector for medium
+    sorted_unique_medium = sorted(results.medium.unique())
+    selected_medium = st.multiselect('Medium', sorted_unique_medium, sorted_unique_medium)
+    # Multi Selector for title
+    sorted_unique_title = sorted(results.title.unique())
+    selected_title = st.multiselect('Title', sorted_unique_title, sorted_unique_title)
+    # Multi Selector for teacher
+    sorted_unique_teacher= sorted(results.teacher.unique())
+    selected_teacher = st.multiselect('Teacher/Author', sorted_unique_teacher, sorted_unique_teacher)
+    # Multi Selector for tags. Going to be more work because there can be multiple tags in one row
+    tags = ';'.join(results['tags'])
+    sorted_unique_tags = list(set(tags.split(sep=';')))
+    sorted_unique_tags.sort()
+    selected_tags = st.multiselect('Tags', sorted_unique_tags, sorted_unique_tags) 
+
+#filtered results
+results_filtered = results.loc[start_date:end_date]
+
+
+filt =  (results_filtered.medium.isin(selected_medium)) & \
+        (results_filtered.title.isin(selected_title))   & \
+        (results_filtered.teacher.isin(selected_teacher)) & \
+        (results_filtered.tags.str.split(';', expand=True).isin(map(str,selected_tags)).any(axis=1))
+
+results_filtered = results[filt] 
+
 # Defining Header Elements
 with header:
     st.title("Learning log 🧠")
@@ -84,14 +118,14 @@ with header:
 
 # Defining metric Elements
 with metrics:
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, = st.columns((3,7))
     
     # Calculating time studied metric
     def minutes_to_hours(duration_min):
         total_hours_studied = int(total_duration_min//60)
         total_minutes_studied = int(total_duration_min % 60)
         return f"{total_hours_studied} Hours {total_minutes_studied} Minutes"
-    total_duration_min = results.loc[:,'duration_min'].sum()
+    total_duration_min = results_filtered[start_date : end_date].loc[:,'duration_min'].sum()
     c1.metric('Total Time Logged Learning ⏱️', minutes_to_hours(total_duration_min))
     
     # Calculate learning day streaks metric
@@ -108,7 +142,7 @@ with metrics:
     c2.metric('Current Streak 🔥',str(learning_streak) + ' Days')
 
 with heat_map:
-    st.vega_lite_chart(results[start_date : end_date],{
+    st.vega_lite_chart(results_filtered,{
     "mark": {"type": "rect", "tooltip": True},
     "encoding": {
         "x": {
@@ -133,10 +167,8 @@ with heat_map:
         "scale": {"scheme": "greens"}
         }
     },
-    #"selection": null,
     "width": 1000,
     "height": 250,
-    #"title": null,
     "autosize": {"type": "fit", "contains": "padding"},
     "config": {
         "background": "#0e1117",
@@ -173,5 +205,9 @@ with heat_map:
 
 
 with learning_sessions:
+    not_null_mask = results_filtered['duration_min'].gt(0)
     st.subheader("Learning Sessions")
-    st.dataframe(learning_log.sort_values(by='session_start_time', ascending=False))
+    st.dataframe(results_filtered
+                    .loc[not_null_mask, :]
+                    .sort_values(by='session_start_time', ascending=False)
+                )
