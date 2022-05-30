@@ -6,6 +6,7 @@ import pandas as pd
 import psycopg2
 import streamlit as st
 from streamlit_option_menu import option_menu
+
 # Setting the wide mode as default for Streamlit
 st.set_page_config(layout="wide")
 
@@ -67,147 +68,160 @@ results['date'] = results.index.values
 # Shift date by 1 day for some reason vega-lite offsets by 1 day back
 results['shifted_date'] = results.date + pd.Timedelta(days=1)
 
-# Establishing containers 
-header = st.container()
-metrics = st.container()
-heat_map = st.container()
-learning_sessions = st.container()
+# Navigation bar
+selected_page = option_menu(
+    menu_title=None,
+    options=['Activity','Log a Session'],
+    icons=['activity','journal-check'],
+    default_index=0,
+    orientation='horizontal',
+    styles={"container": {"padding": "0px", "width":"25%"}}
+)
 
-# Defining side bar features
-with st.sidebar:
-    st.header("Filters") 
-    # Start and end dates
-    start_date = st.date_input("Start Date",
-                                    value = min_date,
-                                    min_value = min_date, 
-                                    max_value = today)
-    end_date = st.date_input("End Date",
-                                    value = today,
-                                    min_value = min_date, 
-                                    max_value = today)
-    # Multi Selector for medium
-    sorted_unique_medium = sorted(results.medium.unique())
-    selected_medium = st.multiselect('Medium', sorted_unique_medium, sorted_unique_medium)
-    # Multi Selector for title
-    sorted_unique_title = sorted(results.title.unique())
-    selected_title = st.multiselect('Title', sorted_unique_title, sorted_unique_title)
-    # Multi Selector for teacher
-    sorted_unique_teacher= sorted(results.teacher.unique())
-    selected_teacher = st.multiselect('Teacher/Author', sorted_unique_teacher, sorted_unique_teacher)
-    # Multi Selector for tags. Going to be more work because there can be multiple tags in one row
-    tags = ';'.join(results['tags'])
-    sorted_unique_tags = list(set(tags.split(sep=';')))
-    sorted_unique_tags.sort()
-    selected_tags = st.multiselect('Tags', sorted_unique_tags, sorted_unique_tags) 
+if selected_page == "Activity":
+    # Establishing containers 
+    header = st.container()
+    metrics = st.container()
+    heat_map = st.container()
+    learning_sessions = st.expander('Learning Sessions')
 
-#filtered results
-results_filtered = results.loc[start_date:end_date]
+    # Defining side bar features
+    with st.sidebar:
+        st.header("Filters") 
+        # Start and end dates
+        start_date = st.date_input("Start Date",
+                                        value = min_date,
+                                        min_value = min_date, 
+                                        max_value = today)
+        end_date = st.date_input("End Date",
+                                        value = today,
+                                        min_value = min_date, 
+                                        max_value = today)
+        # Multi Selector for medium
+        sorted_unique_medium = sorted(results.medium.unique())
+        selected_medium = st.multiselect('Medium', sorted_unique_medium, sorted_unique_medium)
+        # Multi Selector for title
+        sorted_unique_title = sorted(results.title.unique())
+        selected_title = st.multiselect('Title', sorted_unique_title, sorted_unique_title)
+        # Multi Selector for teacher
+        sorted_unique_teacher= sorted(results.teacher.unique())
+        selected_teacher = st.multiselect('Teacher/Author', sorted_unique_teacher, sorted_unique_teacher)
+        # Multi Selector for tags. Going to be more work because there can be multiple tags in one row
+        tags = ';'.join(results['tags'])
+        sorted_unique_tags = list(set(tags.split(sep=';')))
+        sorted_unique_tags.sort()
+        selected_tags = st.multiselect('Tags', sorted_unique_tags, sorted_unique_tags) 
+
+    #filtered results
+    results_filtered = results.loc[start_date:end_date]
 
 
-filt =  (results_filtered.medium.isin(selected_medium)) & \
-        (results_filtered.title.isin(selected_title))   & \
-        (results_filtered.teacher.isin(selected_teacher)) & \
-        (results_filtered.tags.str.split(';', expand=True).isin(map(str,selected_tags)).any(axis=1))
+    filt =  (results_filtered.medium.isin(selected_medium)) & \
+            (results_filtered.title.isin(selected_title))   & \
+            (results_filtered.teacher.isin(selected_teacher)) & \
+            (results_filtered.tags.str.split(';', expand=True).isin(map(str,selected_tags)).any(axis=1))
 
-results_filtered = results[filt] 
+    results_filtered = results[filt] 
 
-# Defining Header Elements
-with header:
-    st.title("Learning log 🧠")
-    st.text("Keep updated with what I have been learning about! Inspired by Github's contribution graph.")
+    # Defining Header Elements
+    with header:
+        st.title("Learning log 🧠")
+        st.text("Keep updated with what I have been learning about! Inspired by Github's contribution graph.")
 
-# Defining metric Elements
-with metrics:
-    c1, c2, = st.columns((3,7))
+    # Defining metric Elements
+    with metrics:
+        c1, c2, = st.columns((3,7))
+        
+        # Calculating time studied metric
+        def minutes_to_hours(duration_min):
+            total_hours_studied = int(total_duration_min//60)
+            total_minutes_studied = int(total_duration_min % 60)
+            return f"{total_hours_studied} Hours {total_minutes_studied} Minutes"
+        total_duration_min = results_filtered[start_date : end_date].loc[:,'duration_min'].sum()
+        c1.metric('Total Time Logged Learning ⏱️', minutes_to_hours(total_duration_min))
+        
+        # Calculate learning day streaks metric
+        def streaks(df, col):
+            sign = np.sign(df[col])
+            s = sign.groupby((sign!=sign.shift()).cumsum()).cumsum()
+            return df.assign(u_streak=s.where(s>0, 0.0), d_streak=s.where(s<0, 0.0).abs())
+        # Need to group learning sessions by day
+        group_results = pd.DataFrame(results['duration_min']).resample('D').sum()
+        # Using streaks function defined above. Stole from https://stackoverflow.com/questions/42397647/pythonic-way-to-calculate-streaks-in-pandas-dataframe 
+        streak = streaks(group_results, 'duration_min')
+        # Taking the most recent streak unless streak is 0 for today then take yesterday streak
+        if int(streak['u_streak'].iloc[-1]) == 0 and streak.index[-1].date() == today:
+            learning_streak = int(streak['u_streak'].iloc[-2])
+        else:
+            learning_streak = int(streak['u_streak'].iloc[-1])
+        c2.metric('Current Streak 🔥',str(learning_streak) + ' Days')
     
-    # Calculating time studied metric
-    def minutes_to_hours(duration_min):
-        total_hours_studied = int(total_duration_min//60)
-        total_minutes_studied = int(total_duration_min % 60)
-        return f"{total_hours_studied} Hours {total_minutes_studied} Minutes"
-    total_duration_min = results_filtered[start_date : end_date].loc[:,'duration_min'].sum()
-    c1.metric('Total Time Logged Learning ⏱️', minutes_to_hours(total_duration_min))
-    
-    # Calculate learning day streaks metric
-    def streaks(df, col):
-        sign = np.sign(df[col])
-        s = sign.groupby((sign!=sign.shift()).cumsum()).cumsum()
-        return df.assign(u_streak=s.where(s>0, 0.0), d_streak=s.where(s<0, 0.0).abs())
-    # Need to group learning sessions by day
-    group_results = pd.DataFrame(results['duration_min']).resample('D').sum()
-    # Using streaks function defined above. Stole from https://stackoverflow.com/questions/42397647/pythonic-way-to-calculate-streaks-in-pandas-dataframe 
-    streak = streaks(group_results, 'duration_min')
-    # Taking the most recent streak
-    learning_streak = int(streak['u_streak'].iloc[-1])
-    c2.metric('Current Streak 🔥',str(learning_streak) + ' Days')
-
-with heat_map:
-    st.vega_lite_chart(results_filtered,{
-    "mark": {"type": "rect", "tooltip": True},
-    "encoding": {
-        "x": {
-        "field": "shifted_date",
-        "type": "ordinal",
-        "timeUnit": "week",
-        "title": '',
-        "axis": {"tickBand": "extent"}
+    with heat_map:
+        st.vega_lite_chart(results_filtered,{
+        "mark": {"type": "rect", "tooltip": True},
+        "encoding": {
+            "x": {
+            "field": "shifted_date",
+            "type": "ordinal",
+            "timeUnit": "week",
+            "title": '',
+            "axis": {"tickBand": "extent"}
+            },
+            "y": {
+            "field": "shifted_date",
+            "type": "ordinal",
+            "timeUnit": "day",
+            "title": '',
+            "axis": {"tickBand": "extent"}
+            },
+            "color": {
+            "field": "duration_min",
+            "type": "quantitative",
+            "aggregate": "sum",
+            "legend": True,
+            "scale": {"scheme": "greens"}
+            }
         },
-        "y": {
-        "field": "shifted_date",
-        "type": "ordinal",
-        "timeUnit": "day",
-        "title": '',
-        "axis": {"tickBand": "extent"}
+        "width": 1000,
+        "height": 250,
+        "autosize": {"type": "fit", "contains": "padding"},
+        "config": {
+            "background": "#0e1117",
+            "axis": {
+            "labelColor": "#fafafa",
+            "titleColor": "#fafafa",
+            "grid": True,
+            "gridwidth": 100,
+            "gridColor": "#0e1117",
+            "labelFont": "\"Source Sans Pro\", sans-serif",
+            "titleFont": "\"Source Sans Pro\", sans-serif",
+            "labelFontSize": 12,
+            "titleFontSize": 12
+            },
+            "legend": {
+            "labelColor": "#fafafa",
+            "titleColor": "#fafafa",
+            "labelFont": "\"Source Sans Pro\", sans-serif",
+            "titleFont": "\"Source Sans Pro\", sans-serif",
+            "labelFontSize": 12,
+            "titleFontSize": 12
+            },
+            "title": {
+            "color": "#fafafa",
+            "subtitleColor": "#fafafa",
+            "labelFont": "\"Source Sans Pro\", sans-serif",
+            "titleFont": "\"Source Sans Pro\", sans-serif",
+            "labelFontSize": 12,
+            "titleFontSize": 12
+            }
         },
-        "color": {
-        "field": "duration_min",
-        "type": "quantitative",
-        "aggregate": "sum",
-        "legend": True,
-        "scale": {"scheme": "greens"}
-        }
-    },
-    "width": 1000,
-    "height": 250,
-    "autosize": {"type": "fit", "contains": "padding"},
-    "config": {
-        "background": "#0e1117",
-        "axis": {
-        "labelColor": "#fafafa",
-        "titleColor": "#fafafa",
-        "grid": True,
-        "gridwidth": 100,
-        "gridColor": "#0e1117",
-        "labelFont": "\"Source Sans Pro\", sans-serif",
-        "titleFont": "\"Source Sans Pro\", sans-serif",
-        "labelFontSize": 12,
-        "titleFontSize": 12
-        },
-        "legend": {
-        "labelColor": "#fafafa",
-        "titleColor": "#fafafa",
-        "labelFont": "\"Source Sans Pro\", sans-serif",
-        "titleFont": "\"Source Sans Pro\", sans-serif",
-        "labelFontSize": 12,
-        "titleFontSize": 12
-        },
-        "title": {
-        "color": "#fafafa",
-        "subtitleColor": "#fafafa",
-        "labelFont": "\"Source Sans Pro\", sans-serif",
-        "titleFont": "\"Source Sans Pro\", sans-serif",
-        "labelFontSize": 12,
-        "titleFontSize": 12
-        }
-    },
-    "padding": {"bottom": 20}
-    })
+        "padding": {"bottom": 20}
+        })
 
 
-with learning_sessions:
-    not_null_mask = results_filtered['duration_min'].gt(0)
-    st.subheader("Learning Sessions")
-    st.dataframe(results_filtered
-                    .loc[not_null_mask, :]
-                    .sort_values(by='session_start_time', ascending=False)
-                )
+    with learning_sessions:
+        not_null_mask = results_filtered['duration_min'].gt(0)
+        st.dataframe(results_filtered
+                        .loc[not_null_mask, :]
+                        .sort_values(by='session_start_time', ascending=False)
+                    )
