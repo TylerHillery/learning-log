@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import psycopg2
 import streamlit as st
-
+from streamlit_option_menu import option_menu
 # Setting the wide mode as default for Streamlit
 st.set_page_config(layout="wide")
 
