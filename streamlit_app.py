@@ -20,6 +20,7 @@ def init_connection():
     return psycopg2.connect(**st.secrets["postgres"])
 
 conn = init_connection()
+cursor = conn.cursor()
 
 # Retrieve data from database with query below. Needed to change date to a timestamp with 00:00:00. 
 sql_code =  (  
@@ -225,3 +226,56 @@ if selected_page == "Activity":
                         .loc[not_null_mask, :]
                         .sort_values(by='session_start_time', ascending=False)
                     )
+
+if selected_page == "Log a Session":
+    header = st.container()
+    action_container = st.container()
+    text = st.container()
+    with header:
+        c1,c2 = st.columns((4,8))
+        c2.title("Log a learning session! 📝")
+    with st.form('session_logger'):
+        with action_container:
+            c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns((1,1,1,1,1,1,1,1,1))
+            session_date = c2.date_input("Date",
+                                            value = today,
+                                            max_value = today
+            )
+            session_start_time = c3.time_input('Start Time')
+            session_end_time = c4.time_input('End Time')
+            medium = c5.text_input('Medium')
+            topic = c6.text_input('Topic')
+            title = c7.text_input('Title')
+            teacher = c8.text_input('Teacher/Author')
+            hyperlink = c9.text_input('Resource URL')
+            tags = c10.text_input('Tags ; separated')
+        with text:
+            notes = st.text_area('Description about what you learned about.')
+        submit = st.form_submit_button('Log!')
+    if submit:
+        sql_code = (
+            "INSERT INTO learninglog.history( "
+                "session_start_time, "
+                "session_end_time, "
+                "medium, "
+                "title, "
+                "teacher, "
+                "topic, "
+                "hyperlink, "
+                "tags, "
+                "notes) "
+            "VALUES ( "
+                f"'{str(session_date) + ' ' + str(session_start_time)}',"
+                f"'{str(session_date) + ' ' + str(session_end_time)}',"
+                f"'{str(medium)}',"
+                f"'{str(title)}',"
+                f"'{str(teacher)}',"
+                f"'{str(topic)}',"
+                f"'{str(hyperlink)}',"
+                f"'{str(tags)}',"
+                f"'{str(notes)}'"
+            ");"
+        )
+        cursor.execute(sql_code)
+        conn.commit
+        st.success("Added session to learning log 🥳")
