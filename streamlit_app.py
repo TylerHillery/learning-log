@@ -277,5 +277,5 @@ if selected_page == "Log a Session":
             ");"
         )
         cursor.execute(sql_code)
-        conn.commit
+        conn.commit()
         st.success("Added session to learning log 🥳")
