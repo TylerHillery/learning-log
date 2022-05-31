@@ -130,3 +130,5 @@ dmypy.json
 
 # additional ignores
 .streamlit/secrets.toml
+.gitignore
+crud_password.txt
