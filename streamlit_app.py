@@ -290,4 +290,3 @@ if selected_page == "Log a Session":
             st.success("Added session to learning log 🥳")
         else:
             st.error("❌ You don't have the necessary credentials to make entries")
-    print(password, os.getenv('crud_password')) 
