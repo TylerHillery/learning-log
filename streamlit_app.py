@@ -253,10 +253,14 @@ if selected_page == "Log a Session":
         with text:
             notes = st.text_area('Description about what you learned about.')
         submit = st.form_submit_button('Log!')
-    with open("crud_password.txt") as f:
-        lines = f.readlines()
-        password = lines[0].strip()
+    
     if submit:
+        try:
+            with open("crud_password.txt") as f:
+                lines = f.readlines()
+                password = lines[0].strip()
+        except:
+            st.error("❌ You don't have the necessary credentials to use this form")
         if password == os.getenv('crud_password'):
             sql_code = (
                 "INSERT INTO learninglog.history( "
