@@ -254,39 +254,43 @@ if selected_page == "Log a Session":
             notes = st.text_area('Description about what you learned about.')
         submit = st.form_submit_button('Log!')
     
-    if submit:
-        try:
-            with open("crud_password.txt") as f:
-                lines = f.readlines()
-                password = lines[0].strip()
-        except:
-            st.error("❌ You don't have the necessary credentials to use this form")
-        if password == os.getenv('crud_password'):
-            sql_code = (
-                "INSERT INTO learninglog.history( "
-                    "session_start_time, "
-                    "session_end_time, "
-                    "medium, "
-                    "title, "
-                    "teacher, "
-                    "topic, "
-                    "hyperlink, "
-                    "tags, "
-                    "notes) "
-                "VALUES ( "
-                    f"'{str(session_date) + ' ' + str(session_start_time)}',"
-                    f"'{str(session_date) + ' ' + str(session_end_time)}',"
-                    f"'{str(medium)}',"
-                    f"'{str(title)}',"
-                    f"'{str(teacher)}',"
-                    f"'{str(topic)}',"
-                    f"'{str(hyperlink)}',"
-                    f"'{str(tags)}',"
-                    f"'{str(notes)}'"
-                ");"
-            )
-            cursor.execute(sql_code)
-            conn.commit()
-            st.success("Added session to learning log 🥳")
-        else:
-            st.error("❌ You don't have the necessary credentials to make entries")
+    def submit_routine(submit):
+        if submit:
+            try:
+                with open("crud_password.txt") as f:
+                    lines = f.readlines()
+                    password = lines[0].strip()
+            except:
+                st.error("❌ You don't have the necessary credentials to use this form")
+                return
+            if password == os.getenv('crud_password'):
+                sql_code = (
+                    "INSERT INTO learninglog.history( "
+                        "session_start_time, "
+                        "session_end_time, "
+                        "medium, "
+                        "title, "
+                        "teacher, "
+                        "topic, "
+                        "hyperlink, "
+                        "tags, "
+                        "notes) "
+                    "VALUES ( "
+                        f"'{str(session_date) + ' ' + str(session_start_time)}',"
+                        f"'{str(session_date) + ' ' + str(session_end_time)}',"
+                        f"'{str(medium)}',"
+                        f"'{str(title)}',"
+                        f"'{str(teacher)}',"
+                        f"'{str(topic)}',"
+                        f"'{str(hyperlink)}',"
+                        f"'{str(tags)}',"
+                        f"'{str(notes)}'"
+                    ");"
+                )
+                cursor.execute(sql_code)
+                conn.commit()
+                st.success("Added session to learning log 🥳")
+            else:
+                st.error("❌ You don't have the necessary credentials to make entries")
+                return
+    submit_routine(submit)
