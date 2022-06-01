@@ -132,7 +132,7 @@ if selected_page == "Activity":
 
     # Defining metric Elements
     with metrics:
-        c1, c2, = st.columns((3,7))
+        c1, c2, = st.columns((5,7))
         
         # Calculating time studied metric
         def minutes_to_hours(duration_min):
