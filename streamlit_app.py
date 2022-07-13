@@ -8,7 +8,6 @@ import psycopg2
 import streamlit as st
 from streamlit_option_menu import option_menu
 from sqlalchemy import create_engine
-import toml
 
 # Setting the wide mode as default for Streamlit
 st.set_page_config(layout="wide")
@@ -18,13 +17,11 @@ today = date.today()
 min_date = date(2022, 1, 1)
 
 # reading in database credentials
-toml_result = toml.load(".streamlit\secrets.toml")
-
-user        = toml_result['postgres']['user']
-password    = toml_result['postgres']['password']
-host        = toml_result['postgres']['host']
-port        = toml_result['postgres']['port']
-dbname      = toml_result['postgres']['dbname']
+user        = st.secrets['postgres']['user']
+password    = st.secrets['postgres']['password']
+host        = st.secrets['postgres']['host']
+port        = st.secrets['postgres']['port']
+dbname      = st.secrets['postgres']['dbname']
 
 engine_string = f'postgresql://{user}:{password}@{host}:{port}/{dbname}'
 
@@ -141,7 +138,7 @@ if selected_page == "Activity":
 
     # Defining metric Elements
     with metrics:
-        c1, c2, c3 = st.columns((5,3,3))
+        c1, c2, c3, c4 = st.columns((5,2,2,6))
         
         # Calculating time studied metric
         def minutes_to_hours(duration_min):
