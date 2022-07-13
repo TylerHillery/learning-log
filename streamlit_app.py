@@ -7,6 +7,8 @@ import pandas as pd
 import psycopg2
 import streamlit as st
 from streamlit_option_menu import option_menu
+from sqlalchemy import create_engine
+import toml
 
 # Setting the wide mode as default for Streamlit
 st.set_page_config(layout="wide")
@@ -15,12 +17,19 @@ st.set_page_config(layout="wide")
 today = date.today()
 min_date = date(2022, 1, 1)
 
-# Initialize db connection. Uses st.experimental_singleton to only run once.
-@st.experimental_singleton
-def init_connection():
-    return psycopg2.connect(**st.secrets["postgres"])
+# reading in database credentials
+toml_result = toml.load(".streamlit\secrets.toml")
 
-conn = init_connection()
+user        = toml_result['postgres']['user']
+password    = toml_result['postgres']['password']
+host        = toml_result['postgres']['host']
+port        = toml_result['postgres']['port']
+dbname      = toml_result['postgres']['dbname']
+
+engine_string = f'postgresql://{user}:{password}@{host}:{port}/{dbname}'
+
+engine = create_engine(engine_string)
+conn = psycopg2.connect(**st.secrets["postgres"])
 cursor = conn.cursor()
 
 # Retrieve data from database with query below. Needed to change date to a timestamp with 00:00:00. 
@@ -42,7 +51,7 @@ sql_code =  (
 )
 
 # Using above query retrieve database. Using the 'date' column as the index
-learning_log = pd.read_sql(sql_code,conn, index_col='date', parse_dates=True)    
+learning_log = pd.read_sql(sql_code,engine, index_col='date', parse_dates=True)    
 
 # Creating an empty data frame for days that I don't have data something will still show on any visualizations. 
 columns = ['session_start_time','session_end_time','duration_min','medium','title','teacher','tags','notes','hyperlink']
@@ -115,15 +124,15 @@ if selected_page == "Activity":
         selected_tags = st.multiselect('Tags', sorted_unique_tags, sorted_unique_tags) 
 
     #filtered results
-    results_filtered = results.loc[start_date:end_date]
+    results_filtered_by_date = results.loc[start_date:end_date]
 
 
-    filt =  (results_filtered.medium.isin(selected_medium)) & \
-            (results_filtered.title.isin(selected_title))   & \
-            (results_filtered.teacher.isin(selected_teacher)) & \
-            (results_filtered.tags.str.split(';', expand=True).isin(map(str,selected_tags)).any(axis=1))
+    filt =  (results_filtered_by_date.medium.isin(selected_medium)) & \
+            (results_filtered_by_date.title.isin(selected_title))   & \
+            (results_filtered_by_date.teacher.isin(selected_teacher)) & \
+            (results_filtered_by_date.tags.str.split(';', expand=True).isin(map(str,selected_tags)).any(axis=1))
 
-    results_filtered = results[filt] 
+    results_filtered = results_filtered_by_date[filt]    
 
     # Defining Header Elements
     with header:
@@ -132,7 +141,7 @@ if selected_page == "Activity":
 
     # Defining metric Elements
     with metrics:
-        c1, c2, = st.columns((5,7))
+        c1, c2, c3 = st.columns((5,3,3))
         
         # Calculating time studied metric
         def minutes_to_hours(duration_min):
@@ -148,7 +157,7 @@ if selected_page == "Activity":
             s = sign.groupby((sign!=sign.shift()).cumsum()).cumsum()
             return df.assign(u_streak=s.where(s>0, 0.0), d_streak=s.where(s<0, 0.0).abs())
         # Need to group learning sessions by day
-        group_results = pd.DataFrame(results['duration_min']).resample('D').sum()
+        group_results = pd.DataFrame(results_filtered['duration_min']).resample('D').sum()
         # Using streaks function defined above. Stole from https://stackoverflow.com/questions/42397647/pythonic-way-to-calculate-streaks-in-pandas-dataframe 
         streak = streaks(group_results, 'duration_min')
         # Taking the most recent streak unless streak is 0 for today then take yesterday streak
@@ -157,10 +166,22 @@ if selected_page == "Activity":
         else:
             learning_streak = int(streak['u_streak'].iloc[-1])
         c2.metric('Current Streak 🔥',str(learning_streak) + ' Days')
+
+        # Defining max streak
+        max_learning_streak = streak['u_streak'].max()
+        c3.metric('Max Streak 🔥',str(learning_streak) + ' Days')
     
     with heat_map:
-        st.vega_lite_chart(results_filtered,{
-        "mark": {"type": "rect", "tooltip": True},
+        group_by_shifted_day = (results_filtered  
+                                .set_index(results_filtered['shifted_date'])
+                                .loc[:,'duration_min']
+                                .resample('D')
+                                .sum()
+                                .reset_index()
+        )
+        group_by_shifted_day['date_column'] = pd.to_datetime(group_by_shifted_day['shifted_date']).dt.date
+        st.vega_lite_chart(group_by_shifted_day,{
+        "mark": {"type": "rect"},
         "encoding": {
             "x": {
             "field": "shifted_date",
@@ -182,7 +203,11 @@ if selected_page == "Activity":
             "aggregate": "sum",
             "legend": True,
             "scale": {"scheme": "greens"}
-            }
+            },
+            "tooltip": [
+                {"field": "date_column", "type": "temporal"},
+                {"field": "duration_min","type": "quantitative","aggregate": "sum"}
+            ]
         },
         "width": 1000,
         "height": 250,
@@ -219,7 +244,6 @@ if selected_page == "Activity":
         },
         "padding": {"bottom": 20}
         })
-
 
     with learning_sessions:
         not_null_mask = results_filtered['duration_min'].gt(0)
