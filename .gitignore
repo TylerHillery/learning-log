@@ -132,3 +132,4 @@ dmypy.json
 .streamlit/secrets.toml
 .gitignore
 crud_password.txt
+sql/
