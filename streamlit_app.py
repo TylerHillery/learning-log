@@ -165,7 +165,7 @@ if selected_page == "Activity":
         c2.metric('Current Streak 🔥',str(learning_streak) + ' Days')
 
         # Defining max streak
-        max_learning_streak = streak['u_streak'].max()
+        max_learning_streak = int(streak['u_streak'].max())
         c3.metric('Max Streak 🔥',str(max_learning_streak) + ' Days')
     
     with heat_map:
