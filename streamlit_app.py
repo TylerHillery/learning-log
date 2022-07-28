@@ -166,7 +166,7 @@ if selected_page == "Activity":
 
         # Defining max streak
         max_learning_streak = streak['u_streak'].max()
-        c3.metric('Max Streak 🔥',str(learning_streak) + ' Days')
+        c3.metric('Max Streak 🔥',str(max_learning_streak) + ' Days')
     
     with heat_map:
         group_by_shifted_day = (results_filtered  
