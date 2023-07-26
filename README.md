@@ -1,6 +1,8 @@
 # **Learning Log 🧠**
 A Sreamlit app that helps me keep track of learning. I wanted to be held accountable on my learning goals and what better way then make a public app where anyone can check to see how you're doing? This app would work great for challenges like the [#100DaysOfCode](https://www.100daysofcode.com/). Trying forking the repo and start tracking your progress!
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/tylerhillery/learning-log/main)
+
 <a href="https://share.streamlit.io/tylerhillery/learning-log/main" target="_blank">
   <img src="images/learning-log.jpg" alt="streamlit"  width="750" height ="400"/>
 </a>
