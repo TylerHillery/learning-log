@@ -1,33 +1,38 @@
 # Import standard library packages
 from datetime import date
-import os
 # Import 3rd party packages
 import numpy as np
 import pandas as pd
-import psycopg2
+import duckdb
 import streamlit as st
 from streamlit_option_menu import option_menu
-from sqlalchemy import create_engine
 
 # Setting the wide mode as default for Streamlit
 st.set_page_config(layout="wide")
 
 # establish some common date variables
 today = date.today()
-min_date = date(2022, 1, 1)
+min_date = date(2023, 1, 1)
 
-# reading in database credentials
-user        = st.secrets['postgres']['user']
-password    = st.secrets['postgres']['password']
-host        = st.secrets['postgres']['host']
-port        = st.secrets['postgres']['port']
-dbname      = st.secrets['postgres']['dbname']
+conn = duckdb.connect(database=':memory:')
 
-engine_string = f'postgresql://{user}:{password}@{host}:{port}/{dbname}'
+duckdb.sql("""
+CREATE TABLE IF NOT EXISTS learning_log (
+    id 					INT 		PRIMARY KEY,
+    session_start_time 	TIMESTAMP,
+	session_end_time 	TIMESTAMP,
+	platform 			text,
+	title				text,
+	teacher				text,
+	topic				text,
+    hyperlink			text,
+	tags				text,
+	notes				text,
+    medium              text 
+);
+""")
 
-engine = create_engine(engine_string)
-conn = psycopg2.connect(**st.secrets["postgres"])
-cursor = conn.cursor()
+duckdb.sql("CREATE SEQUENCE IF NOT EXISTS session_id START 1;")
 
 # Retrieve data from database with query below. Needed to change date to a timestamp with 00:00:00. 
 sql_code =  (  
@@ -36,25 +41,28 @@ sql_code =  (
          CAST (session_start_time::date as timestamp) as date
         ,session_start_time
         ,session_end_time
-        ,Extract(epoch FROM (session_end_time - session_start_time))/60 as duration_min
+        ,Extract(epoch FROM (session_end_time - session_start_time))/60::int as duration_min
         ,medium
         ,title
         ,teacher
         ,tags
         ,notes
         ,hyperlink
-    from learninglog.history
+    from learning_log
 """
 )
 
 # Using above query retrieve database. Using the 'date' column as the index
-learning_log = pd.read_sql(sql_code,engine, index_col='date', parse_dates=True)    
+learning_log = duckdb.sql(sql_code).to_df()
+learning_log['date'] = pd.to_datetime(learning_log['date'])
+learning_log.set_index('date', inplace=True)    
 
 # Creating an empty data frame for days that I don't have data something will still show on any visualizations. 
 columns = ['session_start_time','session_end_time','duration_min','medium','title','teacher','tags','notes','hyperlink']
+
+
 index = pd.date_range(start=min_date, end=today, freq='D')
 df = pd.DataFrame(index=index, columns=columns)
-
 # concat DataFrame frame with learning_log DataFrame that actually has data. 
 results = pd.concat([df, learning_log], sort=False).sort_index()
 
@@ -276,42 +284,33 @@ if selected_page == "Log a Session":
         submit = st.form_submit_button('Log!')
     
     def submit_routine(submit):
-        if submit:
-            try:
-                with open("crud_password.txt") as f:
-                    lines = f.readlines()
-                    password = lines[0].strip()
-            except:
-                st.error("❌ You don't have the necessary credentials to use this form")
-                return
-            if password == os.getenv('crud_password'):
-                sql_code = (
-                    "INSERT INTO learninglog.history( "
-                        "session_start_time, "
-                        "session_end_time, "
-                        "medium, "
-                        "title, "
-                        "teacher, "
-                        "topic, "
-                        "hyperlink, "
-                        "tags, "
-                        "notes) "
-                    "VALUES ( "
-                        f"'{str(session_date) + ' ' + str(session_start_time)}',"
-                        f"'{str(session_date) + ' ' + str(session_end_time)}',"
-                        f"'{str(medium)}',"
-                        f"'{str(title)}',"
-                        f"'{str(teacher)}',"
-                        f"'{str(topic)}',"
-                        f"'{str(hyperlink)}',"
-                        f"'{str(tags)}',"
-                        f"'{str(notes)}'"
-                    ");"
-                )
-                cursor.execute(sql_code)
-                conn.commit()
-                st.success("Added session to learning log 🥳")
-            else:
-                st.error("❌ You don't have the necessary credentials to make entries")
-                return
-    submit_routine(submit)
+        sql_code = (f"""
+            INSERT INTO learning_log( 
+                id, 
+                session_start_time, 
+                session_end_time, 
+                medium, 
+                title, 
+                teacher, 
+                topic, 
+                hyperlink, 
+                tags, 
+                notes) 
+            VALUES ( 
+                nextval('session_id'),
+                '{str(session_date) + ' ' + str(session_start_time)}',
+                '{str(session_date) + ' ' + str(session_end_time)}',
+                '{str(medium)}',
+                '{str(title)}',
+                '{str(teacher)}',
+                '{str(topic)}',
+                '{str(hyperlink)}',
+                '{str(tags)}',
+                '{str(notes)}'
+            );
+        """
+        )
+        duckdb.sql(sql_code)
+        return
+    if submit:
+        submit_routine(submit)
