@@ -1,14 +1,14 @@
 # **Learning Log 🧠**
 A Sreamlit app that helps me keep track of learning. I wanted to be held accountable on my learning goals and what better way then make a public app where anyone can check to see how you're doing? This app would work great for challenges like the [#100DaysOfCode](https://www.100daysofcode.com/). Trying forking the repo and start tracking your progress!
 
-**Note**: This app is no longer up on streamlit cloud as I stopped paying for my RDS instance. I will migrate to a different database sometime in the future. 
-
 <a href="https://share.streamlit.io/tylerhillery/learning-log/main" target="_blank">
   <img src="images/learning-log.jpg" alt="streamlit"  width="750" height ="400"/>
 </a>
 
 ## **Why create this?**
 I always enjoyed GitHub's contribution graph and wanted something similar to track my learning. This project was also great experience with Streamlit a popular open source library that makes it easy to transform your python code into a web app. One of the best ways to learn something is to ***build*** something. 
+
+**Note**: Below is how I originally created this app. I have since migrated my database to DuckDB as I didn't want to pay for an RDS instance anymore.
 
 ## **How did I create this?**
 1. **Create Database**
